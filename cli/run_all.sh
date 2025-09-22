@@ -29,4 +29,6 @@ if [ -d "$DIR" ]; then
   echo "Deleted: $DIR"
 fi
 
-python -m main.run_normal_model_inference --true_intercept 5.0 --true_slope 0.2 --error_sigma 1.0
+python -m main.run_normal_lr_inference --true_intercept 5.0 --true_slope 0.2 --error_sigma 1.0
+
+pyhton -m main.generate_rf --n_x 100 --n_y 50 --mean 5.0 --std 4.0
