@@ -22,13 +22,31 @@ fi
 echo "🔗 Activating virtual environment..."
 source "$VENV_DIR/bin/activate"
 
+
 DIR="results/lr_model"
 if [ -d "$DIR" ]; then
-  echo "Directory exists: $DIR, deleting..."
+  echo "LR directory exists: $DIR, deleting..."
   rm -rf -- "$DIR"
   echo "Deleted: $DIR"
 fi
 
 python -m main.run_normal_lr_inference --true_intercept 5.0 --true_slope 0.2 --error_sigma 1.0
 
-pyhton -m main.generate_rf --n_x 100 --n_y 50 --mean 5.0 --std 4.0
+
+DIR="results/rf"
+if [ -d "$DIR" ]; then
+  echo "RF directory exists: $DIR, deleting..."
+  rm -rf -- "$DIR"
+  echo "Deleted: $DIR"
+fi
+
+DIR="data/rf"
+if [ -d "$DIR" ]; then
+  echo "RF data directory exists: $DIR, deleting..."
+  rm -rf -- "$DIR"
+  echo "Deleted: $DIR"
+fi
+
+python -m main.generate_rf --n_x 100 --n_y 50 --mean 5.0 --std 4.0
+
+

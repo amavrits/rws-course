@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 from typing import List, Dict, Tuple, Any
+from tqdm import tqdm
 
 
 def generate_data(
@@ -286,14 +287,14 @@ def main(
     data.to_csv(data_path/"lr_data.csv", index=False)
 
     normal_params = {}
-    for n in n_obs:
+    for n in tqdm(n_obs, desc="Normal model inference:"):
         params_n_obs = normal_inference(y_all=data["y"].values, path=result_path, n_obs=n)
         normal_params[n] = params_n_obs
 
     plot_normal_progression(y_all=data["y"].values, params=normal_params, path=result_path)
 
     lr_params = {}
-    for n in n_obs:
+    for n in tqdm(n_obs, desc="Linear regression inference:"):
         params_n_obs = lr_inference(
             X_all=data["X"].values,
             y_all=data["y"].values,

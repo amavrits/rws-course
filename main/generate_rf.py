@@ -79,7 +79,7 @@ def main(n_x: int = 100, n_y: int = 100, mean: float = 20., std: float = 4.) -> 
     coords = np.meshgrid(x_grid, y_grid)
     coords = np.c_[[m.flatten() for m in coords]].T
 
-    theta_x_grid = 10 ** np.arange(-2, 4).astype(float)
+    theta_x_grid = 10 ** np.arange(0, 4).astype(float)
     theta_y_grid = 10 ** np.arange(-2, 1).astype(float)
     theta_mesh = np.meshgrid(theta_x_grid, theta_y_grid)
     theta_mesh = np.c_[[m.flatten() for m in theta_mesh]].T
@@ -101,10 +101,10 @@ def main(n_x: int = 100, n_y: int = 100, mean: float = 20., std: float = 4.) -> 
             "theta_y": theta_y,
             "x": coords[:, 0].tolist(),
             "y": coords[:, 1].tolist(),
-            "rf": rf.flatten().tolist()
+            "rf": rf.tolist(),
         })
 
-    with open(result_path/"rfs.json", "w") as f:
+    with open(data_path/"rfs.json", "w") as f:
         json.dump(rfs, f, indent=4)
 
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_x", type=int, default=100)
     parser.add_argument("--n_y", type=int, default=50)
     parser.add_argument("--mean", type=float, default=20.)
-    parser.add_argument("--std", type=int, default=4.)
+    parser.add_argument("--std", type=float, default=4.)
     args = parser.parse_args()
 
     main(
