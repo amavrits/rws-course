@@ -6,7 +6,7 @@ import json
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
-from typing import Dict, List, Tuple
+from typing import Tuple, Optional
 from tqdm import tqdm
 
 
@@ -29,17 +29,19 @@ def markov(coords: NDArray, theta_x: float =1., theta_y: float = 1.) -> NDArray:
 
 def make_rf(
         coords: NDArray,
-        path:Path,
+        path: Optional[Path] = None,
         mean: float = 20.,
         std: float = 4.,
         theta_x: float = 1.,
         theta_y: float = 1.,
         n_x: int = 100,
         n_y: int = 50,
+        return_fig: bool = False
 ) -> None:
 
-    path = path / "rf_plots"
-    path.mkdir(parents=True, exist_ok=True)
+    if path is not None:
+        path = path / "rf_plots"
+        path.mkdir(parents=True, exist_ok=True)
 
     n_points = n_x * n_y
     coords_x = coords[:, 0]
@@ -57,11 +59,15 @@ def make_rf(
     cbar = plt.colorbar(im)
     plt.xlabel("Length [m]", fontsize=14)
     plt.ylabel("Depth [m]", fontsize=14)
-    cbar.set_label("${S}_{u}$ [kPa]", rotation=270, labelpad=16, fontsize=14)
-    plt.close()
-    fig.savefig(path/f"rf_plots_x_{theta_x}_y_{theta_y}.png")
+    cbar.set_label("${S}_{u}$ [kPa]", rotation=270, labelpad=20, fontsize=14)
 
-    return rf
+    if return_fig:
+        return fig
+    else:
+        plt.close()
+        if path is not None:
+            fig.savefig(path/f"rf_plot_x_{theta_x}_y_{theta_y}.png")
+        return rf
 
 
 def main(n_x: int = 100, n_y: int = 100, mean: float = 20., std: float = 4.) -> None:
@@ -94,7 +100,8 @@ def main(n_x: int = 100, n_y: int = 100, mean: float = 20., std: float = 4.) -> 
             n_y=n_y,
             theta_x=theta_x,
             theta_y=theta_y,
-            path=result_path
+            path=result_path,
+            return_fig=False
         )
         rfs.append({
             "theta_x": theta_x,
