@@ -1,8 +1,6 @@
-from tokenize import group
-
 import numpy as np
 import pandas as pd
-from scipy.stats import linregress, norm
+from scipy.stats import linregress, norm, multivariate_normal
 from pathlib import Path
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
@@ -195,7 +193,25 @@ def lr_inference(
     plt.grid()
     plt.legend(fontsize=10)
     plt.close()
-    fig.savefig(path / f"normal_fit_{n_obs}_observations.png")
+    fig.savefig(path / f"lr_fit_{n_obs}_observations.png")
+
+    pdf = multivariate_normal(mean=beta, cov=cov_beta)
+    beta_grid = np.linspace(beta-2*se_beta, beta+2*se_beta, 100).T.tolist()
+    beta_mesh = np.meshgrid(*beta_grid)
+    beta_mesh = np.c_[[m.flatten() for m in beta_mesh]].T
+    beta_pdf = pdf.pdf(beta_mesh)
+    beta_pdf = beta_pdf.reshape(100, 100)
+
+    fig = plt.figure()
+    plt.contour(beta_grid[0], beta_grid[1], beta_pdf)
+    plt.scatter(true_beta[0], true_beta[1], color="r", marker="x", label="True parameters", zorder=2)
+    plt.xlabel("Intercept", fontsize=12)
+    plt.ylabel("Slope", fontsize=12)
+    plt.xlim(-4, 6)
+    plt.ylim(0, 2)
+    plt.grid()
+    plt.close()
+    fig.savefig(path/f"lr_betas_contour_{n_obs}_observations.png")
 
     return beta, beta_error
 
@@ -246,11 +262,12 @@ def plot_lr_progression(
 
 
 def main(
-        n_obs: int = 10,
         true_intercept: float = 5.,
         true_slope: float = 2.,
         error_sigma: float = 1.
 ) -> None:
+
+    n_obs = [5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000]
 
     script_dir = Path(__file__).parent
 
@@ -268,15 +285,15 @@ def main(
     })
     data.to_csv(data_path/"lr_data.csv", index=False)
 
-    # normal_params = {}
-    # for n in [5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000]:
-    #     params_n_obs = normal_inference(y_all=data["y"].values, path=result_path, n_obs=n)
-    #     normal_params[n] = params_n_obs
-    #
-    # plot_normal_progression(y_all=data["y"].values, params=normal_params, path=result_path)
+    normal_params = {}
+    for n in n_obs:
+        params_n_obs = normal_inference(y_all=data["y"].values, path=result_path, n_obs=n)
+        normal_params[n] = params_n_obs
+
+    plot_normal_progression(y_all=data["y"].values, params=normal_params, path=result_path)
 
     lr_params = {}
-    for n in [5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000]:
+    for n in n_obs:
         params_n_obs = lr_inference(
             X_all=data["X"].values,
             y_all=data["y"].values,
@@ -293,20 +310,16 @@ def main(
         path=result_path
     )
 
-    pass
-
 
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument("--n_obs", type=int, default=10)
     parser.add_argument("--true_intercept", type=float, default=5.)
     parser.add_argument("--true_slope", type=float, default=0.2)
     parser.add_argument("--error_sigma", type=float, default=1.)
     args = parser.parse_args()
 
     main(
-        n_obs=args.n_obs,
         true_intercept=args.true_intercept,
         true_slope=args.true_slope,
         error_sigma=args.error_sigma

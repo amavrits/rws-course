@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e  # exit immediately on error
 
+clear
+
 # Path to virtual environment
 VENV_DIR=".venv"
 
@@ -20,4 +22,11 @@ fi
 echo "🔗 Activating virtual environment..."
 source "$VENV_DIR/bin/activate"
 
+DIR="results/lr_model"
+if [ -d "$DIR" ]; then
+  echo "Directory exists: $DIR, deleting..."
+  rm -rf -- "$DIR"
+  echo "Deleted: $DIR"
+fi
 
+python -m main.run_normal_model_inference --true_intercept 5.0 --true_slope 0.2 --error_sigma 1.0
