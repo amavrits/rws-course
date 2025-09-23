@@ -16,20 +16,54 @@ app = Dash(__name__)
 app.title = "Random Field visualization"
 
 
+controls = html.Div(
+    style={
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "10px",
+        "maxWidth": "280px",
+    },
+    children=[
+        html.Div(
+            [
+                html.Label("Horizontal θ [m]", style={"marginBottom": "4px"}),
+                dcc.Input(
+                    id="theta-x",
+                    type="number",
+                    value=100.0,
+                    min=1e-3,
+                    step="any",
+                    debounce=True,
+                    style={"width": "100%"},
+                ),
+            ],
+            style={"display": "flex", "flexDirection": "column"},
+        ),
+        html.Div(
+            [
+                html.Label("Vertical θ [m]", style={"marginBottom": "4px"}),
+                dcc.Input(
+                    id="theta-y",
+                    type="number",
+                    value=1.0,
+                    min=1e-3,
+                    step="any",
+                    debounce=True,
+                    style={"width": "100%"},
+                ),
+            ],
+            style={"display": "flex", "flexDirection": "column"},
+        ),
+        html.Button("Compute", id="go", n_clicks=0, style={"height": "38px"}),
+    ],
+)
+
+# Then in app.layout, use:
 app.layout = html.Div(
     style={"maxWidth": "980px", "margin": "24px"},
     children=[
         html.H3("Random Field visualization"),
-        html.Div(
-            style={"display": "grid", "gridTemplateColumns": "repeat(6, minmax(0, 1fr))", "gap": "12px"},
-            children=[
-                html.Label("Horizontal θ [m]", style={"gridColumn": "span 1", "alignSelf": "end"}),
-                dcc.Input(id="theta-x", type="number", value=100.0, min=1e-3, step="any", debounce=True),
-                html.Label("Vertical θ [m]", style={"gridColumn": "span 1", "alignSelf": "end"}),
-                dcc.Input(id="theta-y", type="number", value=1.0, min=1e-3, step="any", debounce=True),
-                html.Button("Compute", id="go", n_clicks=0, style={"gridColumn": "span 6", "height": "38px"}),
-            ],
-        ),
+        controls,
         html.Div(id="status", style={"marginTop": "8px", "color": "#666", "fontFamily": "monospace"}),
         dcc.Loading(
             id="img-loading",
@@ -37,8 +71,8 @@ app.layout = html.Div(
             children=html.Img(
                 id="rf-img",
                 style={"display": "block", "maxWidth": "900px", "width": "100%", "marginTop": 12}
-                )
-        )
+            )
+        ),
     ],
 )
 

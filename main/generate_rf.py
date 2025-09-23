@@ -39,10 +39,6 @@ def make_rf(
         return_fig: bool = False
 ) -> None:
 
-    if path is not None:
-        path = path / "rf_plots"
-        path.mkdir(parents=True, exist_ok=True)
-
     n_points = n_x * n_y
     coords_x = coords[:, 0]
     coords_y = coords[:, 1]
@@ -60,12 +56,14 @@ def make_rf(
     plt.xlabel("Length [m]", fontsize=14)
     plt.ylabel("Depth [m]", fontsize=14)
     cbar.set_label("${S}_{u}$ [kPa]", rotation=270, labelpad=20, fontsize=14)
+    plt.close()
 
     if return_fig:
         return fig
     else:
-        plt.close()
         if path is not None:
+            path = path / "rf_plots"
+            path.mkdir(parents=True, exist_ok=True)
             fig.savefig(path/f"rf_plot_x_{theta_x}_y_{theta_y}.png")
         return rf
 

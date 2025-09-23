@@ -5,7 +5,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
-from typing import List, Dict, Tuple, Any
+from typing import Tuple, Optional, Dict
 from tqdm import tqdm
 
 
@@ -27,10 +27,12 @@ def generate_data(
     return X, y
 
 
-def normal_inference(y_all: NDArray, path: Path, n_obs: int = 10) -> Tuple[float, NDArray, NDArray]:
-
-    path = path / "normal_model_n_observations"
-    path.mkdir(exist_ok=True, parents=True)
+def normal_inference(
+        y_all: NDArray,
+        path: Optional[Path] = None,
+        n_obs: int = 10,
+        return_fig: bool = False
+) -> Tuple[float, NDArray, NDArray]:
 
     true_mean = y_all.mean()
     true_std = y_all.std()
@@ -73,7 +75,14 @@ def normal_inference(y_all: NDArray, path: Path, n_obs: int = 10) -> Tuple[float
     plt.close()
     fig.savefig(path/f"normal_fit_{n_obs}_observations.png")    
 
-    return float(y_mean), y_mean_err.squeeze(), y_err.squeeze()
+    if return_fig:
+        return fig
+    else:
+        if path is not None:
+            path = path / "normal_model_n_observations"
+            path.mkdir(exist_ok=True, parents=True)
+            fig.savefig(path / f"lr_fit_{n_obs}_observations.png")
+        return float(y_mean), y_mean_err.squeeze(), y_err.squeeze()
 
 
 def plot_normal_progression(
@@ -118,12 +127,10 @@ def lr_inference(
         y_all: NDArray,
         true_beta: NDArray,
         error_sigma: float,
-        path: Path,
-        n_obs: int = 10
+        path: Optional[Path] = None,
+        n_obs: int = 10,
+        return_fig: bool =False
 ) -> Tuple[NDArray, NDArray]:
-
-    path = path / "lr_model_n_observations"
-    path.mkdir(exist_ok=True, parents=True)
 
     np.random.seed(46)
     idx = np.arange(y_all.size)
@@ -194,7 +201,6 @@ def lr_inference(
     plt.grid()
     plt.legend(fontsize=10)
     plt.close()
-    fig.savefig(path / f"lr_fit_{n_obs}_observations.png")
 
     pdf = multivariate_normal(mean=beta, cov=cov_beta)
     beta_grid = np.linspace(beta-2*se_beta, beta+2*se_beta, 100).T.tolist()
@@ -203,7 +209,7 @@ def lr_inference(
     beta_pdf = pdf.pdf(beta_mesh)
     beta_pdf = beta_pdf.reshape(100, 100)
 
-    fig = plt.figure()
+    fig_mv = plt.figure()
     plt.contour(beta_grid[0], beta_grid[1], beta_pdf)
     plt.scatter(true_beta[0], true_beta[1], color="r", marker="x", label="True parameters", zorder=2)
     plt.xlabel("Intercept", fontsize=12)
@@ -212,9 +218,16 @@ def lr_inference(
     plt.ylim(0, 2)
     plt.grid()
     plt.close()
-    fig.savefig(path/f"lr_betas_contour_{n_obs}_observations.png")
 
-    return beta, beta_error
+    if return_fig:
+        return fig
+    else:
+        if path is not None:
+            path = path / "lr_model_n_observations"
+            path.mkdir(exist_ok=True, parents=True)
+            fig.savefig(path / f"lr_fit_{n_obs}_observations.png")
+            fig_mv.savefig(path/f"lr_betas_contour_{n_obs}_observations.png")
+        return beta, beta_error
 
 
 def plot_lr_progression(
@@ -275,10 +288,10 @@ def main(
     data_path = script_dir.parent / "data/lr_model"
     data_path.mkdir(parents=True, exist_ok=True)
 
-    result_path = script_dir.parent / "results/lr_model"
+    result_path = script_dir.parent / "results/normal_model"
     result_path.mkdir(parents=True, exist_ok=True)
 
-    X, y = generate_data(n_obs=100_000, true_intercept=true_intercept, true_slope=true_slope)
+    X, y = generate_data(n_obs=1_000_000, true_intercept=true_intercept, true_slope=true_slope)
 
     data = pd.DataFrame({
         "X": X,
@@ -288,10 +301,13 @@ def main(
 
     normal_params = {}
     for n in tqdm(n_obs, desc="Normal model inference:"):
-        params_n_obs = normal_inference(y_all=data["y"].values, path=result_path, n_obs=n)
+        params_n_obs = normal_inference(y_all=data["y"].values, path=result_path, n_obs=n, return_fig=False)
         normal_params[n] = params_n_obs
 
     plot_normal_progression(y_all=data["y"].values, params=normal_params, path=result_path)
+
+    result_path = script_dir.parent / "results/lr_model"
+    result_path.mkdir(parents=True, exist_ok=True)
 
     lr_params = {}
     for n in tqdm(n_obs, desc="Linear regression inference:"):
@@ -301,7 +317,8 @@ def main(
             true_beta=np.array([true_intercept, true_slope]),
             error_sigma=error_sigma,
             path=result_path,
-            n_obs=n
+            n_obs=n,
+            return_fig = False
         )
         lr_params[n] = params_n_obs
 
