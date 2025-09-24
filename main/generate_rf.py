@@ -36,7 +36,8 @@ def make_rf(
         theta_y: float = 1.,
         n_x: int = 100,
         n_y: int = 50,
-        return_fig: bool = False
+        return_fig: bool = False,
+        random_seed: int = 42
 ) -> None:
 
     n_points = n_x * n_y
@@ -46,7 +47,7 @@ def make_rf(
     autocorr = markov(coords=coords, theta_x=theta_x, theta_y=theta_y)
     cov = autocorr * std ** 2
 
-    np.random.seed(42)
+    np.random.seed(random_seed)
     rf_standard = np.random.randn(n_points)
     rf = multivariate_normal(mean=np.repeat(mean, n_points), cov=cov).rvs().reshape(n_y, n_x)
 
