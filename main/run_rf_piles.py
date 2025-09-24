@@ -7,6 +7,10 @@ from numpy.typing import NDArray
 from typing import Optional, Tuple
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.patches import Rectangle
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
 from argparse import ArgumentParser
 from tqdm import tqdm
 
@@ -21,15 +25,17 @@ def get_failure_points(foundation_width: float = 10., n_angles: int =50) -> Tupl
     return coords, d_length
 
 
-def foundation_analysis(
-        foundation_width: float = 10.,
+def pile_analysis(
+        n_piles: int = 10,
         mean: float = 20.,
         std: float = 4.,
         theta_x: float = 100.,
         theta_y: float = 1.,
         n_x: int = 100,
         n_y: int = 50,
-        foundation_load: float = 400.,
+        load_per_pile: float = 400.,
+        pile_diameter: float = 1.,
+        pile_length:float = 15.,
         path: Optional[Path] = None,
         return_fig: bool = False,
         random_seed: int = 42
@@ -53,26 +59,34 @@ def foundation_analysis(
         random_seed=random_seed
     )
 
-    failure_coords, d_length = get_failure_points(foundation_width=foundation_width, n_angles=100)
-    failure_autocorr = markov(failure_coords, theta_x=theta_x, theta_y=theta_y)
+    x_grid_piles = np.linspace(0, 100, n_piles+1)
+    pile_xs = (x_grid_piles[:-1] + x_grid_piles[1:]) / 2
+    pile_tip_ys = np.repeat(pile_length+0.5, n_piles)
+    pile_tip_coords = np.c_[pile_xs, pile_tip_ys]
 
-    d_x = failure_coords[:, 0][np.newaxis, :] - coords[:, 0][:, np.newaxis]
-    d_y = failure_coords[:, 1][np.newaxis, :] - coords[:, 1][:, np.newaxis]
+    d_x = pile_tip_coords[:, 0][np.newaxis, :] - coords[:, 0][:, np.newaxis]
+    d_y = pile_tip_coords[:, 1][np.newaxis, :] - coords[:, 1][:, np.newaxis]
     d = np.sqrt(d_x**2+d_y**2)
-    failure_rf_idx = np.argmin(d, axis=0)
-    failure_rf = rf.flatten(order="C")[failure_rf_idx]
+    rf_tip_idx = np.argmin(d, axis=0)
+    rf_tip_row_idx, rf_tip_col_idx = np.unravel_index(np.argmin(d, axis=0), rf.shape)
+    rf_tip = rf[rf_tip_row_idx, rf_tip_col_idx]
 
-    resisting_force = np.dot(failure_rf, d_length)
-    fos = float(resisting_force/foundation_load)
+    area = np.pi * pile_diameter ** 2 / 4
+    resisting_force_per_pile = area * rf_tip
+    resisting_force_pilegroup = np.sum(resisting_force_per_pile)
+    load_pilegroup = n_piles * load_per_pile
+    pile_fos = resisting_force_per_pile/load_per_pile
+    fos = float(resisting_force_pilegroup/load_pilegroup)
 
     fig = plot_rf(
         rf=rf,
         coords=coords,
         true_mean=mean,
         true_std=std,
-        failure_coords=failure_coords,
-        failure_rf=failure_rf,
-        foundation_width=foundation_width,
+        pile_tip_coords=pile_tip_coords,
+        pile_fos=pile_fos,
+        rf_tip=rf_tip,
+        n_piles=n_piles,
         fos=fos
     )
 
@@ -82,27 +96,28 @@ def foundation_analysis(
         if path is not None:
             path = path / "plots"
             path.mkdir(parents=True, exist_ok=True)
-            fig.savefig(path/f"rf_foundation_plot_x_{theta_x}_y_{theta_y}_width_{foundation_width}.png")
+            fig.savefig(path/f"rf_foundation_plot_x_{theta_x}_y_{theta_y}_{n_piles}_piles.png")
         return fos
 
 
 def plot_rf(
         rf: NDArray,
         coords: NDArray,
-        failure_coords: NDArray,
-        failure_rf: NDArray,
+        pile_tip_coords: NDArray,
+        pile_fos: NDArray,
+        rf_tip: NDArray,
         true_mean: float = 20.,
         true_std: float = 4.,
-        foundation_width: float = 10.,
+        n_piles: int = 10,
         fos: float = 1.
 ) -> plt.Figure:
 
     su_grid = np.linspace(true_mean-5*true_std, true_mean+5*true_std, 10_000)
     true_pdf = norm(loc=true_mean, scale=true_std).pdf(su_grid)
     rf_pdf = norm(loc=rf.mean(), scale=rf.std()).pdf(su_grid)
-    failure_pdf = norm(loc=failure_rf.mean(), scale=failure_rf.std()).pdf(su_grid)
+    failure_pdf = norm(loc=rf_tip.mean(), scale=rf_tip.std()).pdf(su_grid)
 
-    fig, axs = plt.subplots(1, 2, figsize=(20, 6), gridspec_kw={'width_ratios': [3, 1]})
+    fig, axs = plt.subplots(1, 2, figsize=(22, 6), gridspec_kw={'width_ratios': [3, 1]})
 
     ax = axs[0]
     im = ax.imshow(rf, aspect="auto")
@@ -114,27 +129,42 @@ def plot_rf(
     ax.set_ylabel("Depth [m]", fontsize=14)
     ax.set_ylim(coords[:, 1].min(), coords[:, 1].max())
     ax.invert_yaxis()
-    ax.set_title(f"FoS={fos:.2f}", fontsize=14)
+    ax.set_title(f"Pile group FoS={fos:.2f}", fontsize=14)
 
-    if foundation_width >= 1.:
-        ax.plot(failure_coords[:, 0], failure_coords[:, 1], c="r", linewidth=2)
-        ax.plot(
-            [failure_coords[:, 0].min(), failure_coords[:, 0].max()/2],
-            [failure_coords[:, 1].min(), failure_coords[:, 1].min()],
-            c="grey",
-            linewidth=20
+    cmap = plt.get_cmap("jet")
+    colornorm = Normalize(vmin=np.nanmin(pile_fos), vmax=np.nanmax(pile_fos))
+
+    for (p_fos, pile_tip_coord) in zip(pile_fos, pile_tip_coords):
+        pile_x, pile_y = pile_tip_coord
+        width = 1.2
+        rect = Rectangle(
+            (pile_x-width/2, 0),
+            width=width,
+            height=pile_y,
+            facecolor=cmap(colornorm(p_fos)),
+            edgecolor="k",
+            linewidth=1.
         )
-        # axin = ax.inset_axes([0.5, 0.1, 0.4, 0.4])
-        # axin.scatter(failure_coords[:, 0], failure_coords[:, 1], c=failure_rf, s=20, vmin=rf.min(), vmax=rf.max())
-        # ax.indicate_inset_zoom(axin, edgecolor="black")
-        # axin.invert_yaxis()
-        # axin.set_xticks([])
-        # axin.set_yticks([])
+        ax.add_patch(rect)
+
+    sm = ScalarMappable(norm=colornorm, cmap=cmap)
+    sm.set_array([])
+    cbar = fig.colorbar(
+        sm,
+        ax=ax,
+        orientation="horizontal",
+        location="bottom",
+        fraction=0.06,
+        pad=0.14
+    )
+    cbar.set_label("FoS per pile [-]", fontsize=14)
+    cbar.ax.yaxis.set_ticks_position("left")
+    cbar.ax.yaxis.set_label_position("left")
 
     ax = axs[1]
     ax.plot(su_grid, true_pdf, c="b", label="True PDF")
     ax.plot(su_grid, rf_pdf, c="r", label="PDF of RF")
-    ax.plot(su_grid, failure_pdf, c="g", label="PDF of failure plane")
+    ax.plot(su_grid, failure_pdf, c="g", label="PDF of pile tips")
     ax.set_xlabel("${S}_{u}$ [kPa]", fontsize=14)
     ax.set_ylabel("Density [-]", fontsize=14)
     ax.legend(fontsize=12)
@@ -153,41 +183,43 @@ def main(
         std: float = 4.,
         n_x: int = 100,
         n_y: int = 50,
-        foundation_load: float = 400.
+        load_per_pile: float = 400.,
+        pile_diameter: float = 1.
 ) -> None:
 
     script_path = Path(__file__).parent
 
-    data_path = script_path.parent / "data/rf_foundation"
+    data_path = script_path.parent / "data/rf_piles"
     data_path.mkdir(parents=True, exist_ok=True)
 
-    result_path = script_path.parent / "results/rf_foundation"
+    result_path = script_path.parent / "results/rf_piles"
     result_path.mkdir(parents=True, exist_ok=True)
 
-    foundation_widths = [1, 5, 10, 20]
-    foundation_width_results = {}
-    for foundation_width in tqdm(foundation_widths):
-        fos = foundation_analysis(
-            foundation_width=foundation_width,
+    n_piles = [1, 5, 10, 20, 40]
+    n_piles_results = {}
+    for n in tqdm(n_piles):
+        fos = pile_analysis(
+            n_piles=n,
             theta_x=theta_x,
             theta_y=theta_y,
             mean=mean,
             std=std,
             n_x=n_x,
             n_y=n_y,
-            foundation_load=foundation_load,
+            load_per_pile=load_per_pile,
+            pile_diameter=pile_diameter,
             path=result_path,
             return_fig=False
         )
 
-        foundation_width_results[foundation_width] = {
+        n_piles_results[n] = {
             "theta_x": theta_x,
             "theta_y": theta_y,
             "fos": fos,
         }
 
-    with open(data_path/"foundation_width_results.json", "w") as f:
-        json.dump(foundation_width_results, f, indent=4)
+    with open(data_path/"number_piles.json", "w") as f:
+        json.dump(n_piles_results, f, indent=4)
 
 
 if __name__ == "__main__":
@@ -199,7 +231,8 @@ if __name__ == "__main__":
     parser.add_argument("--std", type=float, default=4.)
     parser.add_argument("--n_x", type=int, default=100)
     parser.add_argument("--n_y", type=int, default=50)
-    parser.add_argument("--foundation_load", type=float, default=400.)
+    parser.add_argument("--load_per_pile", type=float, default=10.)
+    parser.add_argument("--pile_diameter", type=float, default=1.)
     args = parser.parse_args()
 
     main(
@@ -209,7 +242,8 @@ if __name__ == "__main__":
         std=args.std,
         n_x=args.n_x,
         n_y=args.n_y,
-        foundation_load=args.foundation_load
+        load_per_pile=args.load_per_pile,
+        pile_diameter=args.pile_diameter
     )
 
 

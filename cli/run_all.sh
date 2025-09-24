@@ -35,7 +35,7 @@ python -m main.run_normal_lr_inference --true_intercept 5.0 --true_slope 0.2 --e
 
 DIR="results/rf"
 if [ -d "$DIR" ]; then
-  echo "RF directory exists: $DIR, deleting..."
+  echo "RF results directory exists: $DIR, deleting..."
   rm -rf -- "$DIR"
   echo "Deleted: $DIR"
 fi
@@ -52,14 +52,14 @@ python -m main.generate_rf --n_x 100 --n_y 50 --mean 5.0 --std 4.0
 
 DIR="results/rf_foundation"
 if [ -d "$DIR" ]; then
-  echo "RF directory exists: $DIR, deleting..."
+  echo "RF foundation results directory exists: $DIR, deleting..."
   rm -rf -- "$DIR"
   echo "Deleted: $DIR"
 fi
 
 DIR="data/rf_foundation"
 if [ -d "$DIR" ]; then
-  echo "RF data directory exists: $DIR, deleting..."
+  echo "RF foundation data directory exists: $DIR, deleting..."
   rm -rf -- "$DIR"
   echo "Deleted: $DIR"
 fi
@@ -72,4 +72,29 @@ python -m main.run_rf_foundation \
   --mean 20.0 \
   --std 4.0 \
   --foundation_load 400.0
+
+
+DIR="results/rf_piles"
+if [ -d "$DIR" ]; then
+  echo "RF piles result directory exists: $DIR, deleting..."
+  rm -rf -- "$DIR"
+  echo "Deleted: $DIR"
+fi
+
+DIR="data/rf_piles"
+if [ -d "$DIR" ]; then
+  echo "RF piles data directory exists: $DIR, deleting..."
+  rm -rf -- "$DIR"
+  echo "Deleted: $DIR"
+fi
+
+python -m main.run_rf_piles \
+  --theta_x 100.0 \
+  --theta_y 1.0 \
+  --n_x 100 \
+  --n_y 50 \
+  --mean 20.0 \
+  --std 4.0 \
+  --load_per_pile 15.0 \
+  --pile_diameter 1.0
 
