@@ -42,9 +42,15 @@ def main(
         times=obs_times,
         params=runner.params,
         cv=true_cv,
-        cov=settlement_cov,
+        cov=runner.settlement_cov,
         n=1
     )
+
+    sigma = np.sqrt(np.log(1 + runner.settlement_cov ** 2))
+    mu = np.log(settlement_obs) - 0.5 * sigma ** 2
+    observation_dist = lognorm(scale=np.exp(mu), s=sigma)
+    settlement_obs_lower_quantiles = observation_dist.ppf(0.05)
+    settlement_obs_upper_quantiles = observation_dist.ppf(0.95)
 
     predictions = {}
 
@@ -60,11 +66,16 @@ def main(
         prior_prediction_mean, prior_prediction_quantiles = runner.predict(times=forecast_times, type="prior")
         posterior_prediction_mean, posterior_prediction_quantiles = runner.predict(times=forecast_times, type="posterior")
 
+        prior_exceeds_target = runner.target_prob(times=forecast_times, type="prior")
+        posterior_exceeds_target = runner.target_prob(times=forecast_times, type="posterior")
+
         predictions[int(current_time)] = {
             "all_times": all_times.tolist(),
             "observation_times": obs_times[1:i_obs+1].tolist() if current_time > 0 else [],
             "forecast_times": forecast_times.tolist(),
             "observations": settlement_obs[1:i_obs+1].tolist() if current_time > 0 else [],
+            "observations_lower_quantiles": settlement_obs_lower_quantiles[1:i_obs+1].tolist() if current_time > 0 else [],
+            "observations_upper_quantiles": settlement_obs_upper_quantiles[1:i_obs+1].tolist() if current_time > 0 else [],
             "prior_mean": prior_prediction_mean.tolist(),
             "prior_lower_quantile": prior_prediction_quantiles[0].tolist(),
             "prior_upper_quantile": prior_prediction_quantiles[1].tolist(),
@@ -73,13 +84,16 @@ def main(
             "posterior_upper_quantile": posterior_prediction_quantiles[1].tolist(),
             "cv_grid": runner.cv_grid.tolist(),
             "cv_prior_pdf": np.exp(runner.cv_grid_prior_logpdf).tolist(),
-            "cv_posterior_pdf": np.exp(runner.cv_grid_logpdf).tolist()
+            "cv_posterior_pdf": np.exp(runner.cv_grid_logpdf).tolist(),
+            "prior_exceeds_target": prior_exceeds_target.tolist(),
+            "posterior_exceeds_target": posterior_exceeds_target.tolist()
         }
 
         plot_predictions(
             predictions=predictions[current_time],
             true_cv=true_cv,
             true_settlement=true_settlement,
+            target_settlement=runner.target_settlement,
             path=result_path,
             return_fig=False
         )

@@ -25,6 +25,7 @@ class Runner:
     cv_grid_logpdf: NDArray = field(init=False)
     all_times: NDArray = field(default_factory=lambda: np.arange(2_000))
     settlement: NDArray = field(init=False)
+    target_settlement: float = 0.067
 
     def __post_init__(self) -> None:
         self.set_cv_prior()
@@ -89,11 +90,32 @@ class Runner:
 
         return settlement_mean[time_idx], settlement_quantiles[:, time_idx]
 
+    def target_prob(self, times: Optional[NDArray] = None, type: str = "posterior") -> NDArray:
+
+        if times is None:
+            times = self.all_times
+
+        time_idx = np.isin(self.all_times, times)
+
+        if type == "prior":
+            cv_logpdf = self.cv_grid_prior_logpdf.copy()
+        else:
+            cv_logpdf = self.cv_grid_logpdf.copy()
+
+        cv_pdf = np.exp(cv_logpdf)
+
+        exceeds_target = self.settlement[:, time_idx] >= self.target_settlement
+        exceed_prob = cv_pdf[:, np.newaxis] * exceeds_target
+        exceed_prob = trapezoid(exceed_prob, self.cv_grid, axis=0)
+
+        return exceed_prob
+
 
 def plot_predictions(
         predictions: Dict[str, List[float]],
         true_cv: float,
         true_settlement: NDArray,
+        target_settlement: float,
         path: Optional[Path] = None,
         return_fig: bool = False
 ) -> Optional[plt.Figure]:
@@ -101,7 +123,7 @@ def plot_predictions(
     all_times = predictions["all_times"]
     obs_times = predictions["observation_times"]
     forecast_times = predictions["forecast_times"]
-    settlement_obs = predictions["observations"]
+    settlement_obs = np.asarray(predictions["observations"])
     prior_mean = predictions["prior_mean"]
     prior_lower_quantile = predictions["prior_lower_quantile"]
     prior_upper_quantile = predictions["prior_upper_quantile"]
@@ -111,6 +133,10 @@ def plot_predictions(
     cv_grid = predictions["cv_grid"]
     cv_prior_pdf = predictions["cv_prior_pdf"]
     cv_posterior_pdf = predictions["cv_posterior_pdf"]
+    prior_exceeds_target = [p*100 for p in predictions["prior_exceeds_target"]]
+    posterior_exceeds_target = [p*100 for p in predictions["posterior_exceeds_target"]]
+    settlement_obs_lower_quantiles = np.asarray(predictions["observations_lower_quantiles"])
+    settlement_obs_upper_quantiles = np.asarray(predictions["observations_upper_quantiles"])
 
     fig, axs = plt.subplots(1, 2, figsize=(20, 6), gridspec_kw={'width_ratios': [3, 1]})
 
@@ -118,7 +144,11 @@ def plot_predictions(
 
     if len(obs_times) > 0:
         ax.axvline(max(obs_times), c="k", linestyle="--")
-        ax.scatter(obs_times, settlement_obs, color="k", marker="x", label="Observations")
+        obs_errors = np.vstack((
+            settlement_obs_upper_quantiles-settlement_obs,
+            settlement_obs-settlement_obs_lower_quantiles
+        ))
+        ax.errorbar(x=obs_times, y=settlement_obs, yerr=obs_errors, color="k", fmt='x', capsize=4, label="Observations")
 
     ax.plot(forecast_times, prior_mean, c="b", linewidth=1.5, label="Prior mean prediction")
     ax.fill_between(
@@ -141,12 +171,30 @@ def plot_predictions(
     ax.plot(forecast_times, posterior_upper_quantile, c="r", linewidth=.5)
 
     ax.plot(all_times, true_settlement, c="g", linewidth=1.5, label="True settlement model")
+    ax.axhline(target_settlement, c="k", linewidth=1.5, label="Target settlement")
+
+    ax2 = ax.twinx()
+    ax2.plot(forecast_times, prior_exceeds_target, c="b", linestyle="--", label="P(S>Target) - Prior")
+    ax2.plot(forecast_times, posterior_exceeds_target, c="r", linestyle="--", label="P(S>Target) - Posterior")
 
     ax.set_xlabel("Time [d]", fontsize=12)
     ax.set_ylabel("Settlement [m]", fontsize=12)
     ax.invert_yaxis()
-    ax.legend(fontsize=12)
+    ax.set_ylim(0, 0.1)
     ax.grid()
+    ax2.set_ylabel("Target exceedance probability [%]", fontsize=12)
+    ax2.set_ylim(0, 100)
+
+    # Combine legends from both y-axes and place above the subplot
+    handles1, labels1 = ax.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    all_handles = handles1 + handles2
+    all_labels = labels1 + labels2
+    
+    # Create legend above the subplot with 4 columns
+    ax.legend(all_handles, all_labels, loc='upper center', bbox_to_anchor=(0.5, 1.15), 
+             ncol=4, fontsize=10, frameon=True, fancybox=True, shadow=False)
+
 
     ax = axs[1]
     ax.plot(cv_grid, cv_prior_pdf, c="b", label="Prior PDF")
@@ -170,7 +218,6 @@ def plot_predictions(
             else:
                 fig.savefig(path/"settlement_prediction_time_0.png")
         return
-
 
 
 if __name__ == "__main__":

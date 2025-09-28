@@ -40,17 +40,29 @@ def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_
     cv_prior_pdf = prediction["cv_prior_pdf"]
     cv_posterior_pdf = prediction["cv_posterior_pdf"]
     
+    # Get target exceedance probabilities (convert to percentages)
+    try:
+        prior_exceeds_target = [p*100 for p in prediction["prior_exceeds_target"]]
+        posterior_exceeds_target = [p*100 for p in prediction["posterior_exceeds_target"]]
+        has_target_data = True
+    except KeyError:
+        # Fallback for older data without target probabilities
+        prior_exceeds_target = [0] * len(forecast_times)
+        posterior_exceeds_target = [0] * len(forecast_times)
+        has_target_data = False
+    
     # Calculate true settlement for display
     from src.settlement.model import settlement_model, SoilParams
     params = SoilParams()
     true_settlement = settlement_model(times=np.array(all_times), params=params, cv=np.array([true_cv]))
     
-    # Create subplot figure with 2 columns
+    # Create subplot figure with 2 columns and secondary y-axis
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=('Settlement Predictions', 'Cv Distribution'),
         column_widths=[0.75, 0.25],
-        horizontal_spacing=0.15
+        horizontal_spacing=0.15,
+        specs=[[{"secondary_y": True}, {"secondary_y": False}]]
     )
     
     # Left plot - Settlement predictions
@@ -162,10 +174,36 @@ def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_
             mode='lines',
             line=dict(color='green', width=1.5),
             name='True settlement model',
-            legendgroup='left'
+            showlegend=False  # Will be handled by custom legend
         ),
-        row=1, col=1
+        row=1, col=1, secondary_y=False
     )
+    
+    # Secondary y-axis traces (target exceedance probabilities)
+    if has_target_data:
+        fig.add_trace(
+            go.Scatter(
+                x=forecast_times,
+                y=prior_exceeds_target,
+                mode='lines',
+                line=dict(color='blue', dash='dot'),
+                name='P(S>Target) - Prior',
+                showlegend=False  # Will be handled by custom legend
+            ),
+            row=1, col=1, secondary_y=True
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=forecast_times,
+                y=posterior_exceeds_target,
+                mode='lines',
+                line=dict(color='red', dash='dot'),
+                name='P(S>Target) - Posterior',
+                showlegend=False  # Will be handled by custom legend
+            ),
+            row=1, col=1, secondary_y=True
+        )
     
     # Vertical line at observation time
     if obs_times:
@@ -220,24 +258,81 @@ def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_
         row=1, col=2
     )
     
-    # Update layout
+    # Update axes
     fig.update_xaxes(title_text="Time [d]", row=1, col=1, showgrid=True)
-    fig.update_yaxes(title_text="Settlement [m]", autorange='reversed', row=1, col=1, showgrid=True)
+    fig.update_yaxes(title_text="Settlement [m]", autorange='reversed', row=1, col=1, secondary_y=False, showgrid=True)
+    if has_target_data:
+        fig.update_yaxes(title_text="Target exceedance probability [%]", range=[0, 100], row=1, col=1, secondary_y=True)
     fig.update_xaxes(title_text="Cv [m²/d]", row=1, col=2, showgrid=True)
     fig.update_yaxes(title_text="Density [-]", row=1, col=2, showgrid=True)
     
     fig.update_layout(
-        height=600,
-        showlegend=True,
-        title=f"Settlement Analysis - Time: {time_key} days",
-        # Position legend for left subplot (right top corner of left plot only)
-        legend=dict(
-            x=0.50,  # Within the left subplot (which goes from 0 to ~0.75)
-            y=0.95,  # Top of subplot
-            bgcolor="rgba(255,255,255,0.9)",
-            bordercolor="Black",
-            borderwidth=1
-        )
+        height=650,  # Increased height for legend above
+        showlegend=False,  # Disable default legend, use custom annotations
+        title=f"Settlement Analysis - Time: {time_key} days"
+    )
+    
+    # Create custom legend above left subplot in 4 columns
+    left_legend_items = [
+        ("Observations", "black", "markers"),
+        ("Prior mean prediction", "blue", "line"),
+        ("Prior 90% CI", "rgba(0,0,255,0.3)", "fill"),
+        ("True settlement model", "green", "line")
+    ]
+    
+    if has_target_data:
+        left_legend_items.extend([
+            ("Posterior mean prediction", "red", "line"), 
+            ("Posterior 90% CI", "rgba(255,0,0,0.3)", "fill"),
+            ("P(S>Target) - Prior", "blue", "dash"),
+            ("P(S>Target) - Posterior", "red", "dash")
+        ])
+    else:
+        left_legend_items.extend([
+            ("Posterior mean prediction", "red", "line"), 
+            ("Posterior 90% CI", "rgba(255,0,0,0.3)", "fill")
+        ])
+    
+    # Create 4-column legend above left subplot
+    legend_html = "<b>Settlement Analysis Legend</b><br>"
+    legend_html += "<table style='font-size: 12px; border-spacing: 10px 2px;'>"
+    
+    for i in range(0, len(left_legend_items), 4):  # Process 4 items per row
+        legend_html += "<tr>"
+        for j in range(4):
+            if i + j < len(left_legend_items):
+                name, color, style = left_legend_items[i + j]
+                
+                if style == "line":
+                    symbol = "—"
+                elif style == "dash": 
+                    symbol = "- - -"
+                elif style == "markers":
+                    symbol = "✕"
+                elif style == "fill":
+                    symbol = "█"
+                else:
+                    symbol = "—"
+                    
+                legend_html += f"<td><span style='color:{color}'>{symbol}</span> {name}</td>"
+            else:
+                legend_html += "<td></td>"  # Empty cell
+        legend_html += "</tr>"
+    
+    legend_html += "</table>"
+    
+    fig.add_annotation(
+        x=0.375,  # Center of left subplot
+        y=1.15,   # Above the subplot
+        xref='paper',
+        yref='paper',
+        text=legend_html,
+        showarrow=False,
+        bgcolor="rgba(255,255,255,0.9)",
+        bordercolor="Black",
+        borderwidth=1,
+        align="center",
+        xanchor="center"
     )
     
     # Create custom legend for right subplot
@@ -314,7 +409,7 @@ def layout():
         ], style={'margin': '20px', 'padding': '20px', 'backgroundColor': '#f8f9fa', 'borderRadius': '5px'}),
         
         html.Div([
-            dcc.Graph(id='settlement-analysis-plot', style={'height': '600px'})
+            dcc.Graph(id='settlement-analysis-plot', style={'height': '650px'})  # Increased height for legend
         ], style={'margin': '20px'}),
         
         html.Div([
