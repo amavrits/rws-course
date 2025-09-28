@@ -33,7 +33,7 @@ sidebar_style = {
 
 content_style = {
     "marginLeft": "18rem",
-    "padding": "2rem 1rem"
+    "padding": "1rem 0.5rem"  # Reduced padding to give more space to content
 }
 
 sidebar = html.Div([
