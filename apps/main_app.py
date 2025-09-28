@@ -17,7 +17,7 @@ app = Dash(
 )
 
 # Import all pages to register them AFTER app instantiation
-from pages import home, rf_visualization, foundation_analysis, pile_analysis, normal_distribution_fitting
+from pages import home, rf_visualization, foundation_analysis, pile_analysis, normal_distribution_fitting, settlement_analysis
 
 # Define the sidebar navigation
 sidebar_style = {
@@ -83,6 +83,16 @@ sidebar = html.Div([
         html.Div("Normal Distribution Fitting", style={"fontWeight": "500"}),
         html.Small("Fit normal distributions with varying sample sizes", style={"color": "#6c757d"})
     ], href="/normal-fitting",
+       style={
+           "display": "block", "padding": "0.75rem", "marginBottom": "0.5rem",
+           "textDecoration": "none", "color": "#495057", "borderRadius": "0.25rem",
+           "backgroundColor": "transparent"
+       }),
+    
+    dcc.Link([
+        html.Div("Settlement Analysis", style={"fontWeight": "500"}),
+        html.Small("Interactive Bayesian settlement prediction analysis", style={"color": "#6c757d"})
+    ], href="/settlement-analysis",
        style={
            "display": "block", "padding": "0.75rem", "marginBottom": "0.5rem",
            "textDecoration": "none", "color": "#495057", "borderRadius": "0.25rem",
