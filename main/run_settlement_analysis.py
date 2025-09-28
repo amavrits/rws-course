@@ -36,7 +36,7 @@ def main(
 
     true_settlement = settlement_model(times=all_times, params=runner.params, cv=true_cv)
 
-    obs_times = np.arange(days_interval, all_times.max(), days_interval)
+    obs_times = np.arange(0, all_times.max(), days_interval)
     settlement_obs = sample_settlement(
         times=obs_times,
         params=runner.params,
@@ -49,18 +49,21 @@ def main(
 
     for i_obs in tqdm(range(settlement_obs.size)):
 
-        if i_obs > 0:
+        current_time = obs_times[i_obs]
+
+        if current_time > 0:
             runner.bayes(s_obs=settlement_obs[:i_obs], times=obs_times[:i_obs])
 
-        forecast_times = all_times[all_times>=obs_times[i_obs-1]]
+        forecast_times = all_times[all_times>=obs_times[i_obs]]
+
         prior_prediction_mean, prior_prediction_quantiles = runner.predict(times=forecast_times, type="prior")
         posterior_prediction_mean, posterior_prediction_quantiles = runner.predict(times=forecast_times, type="posterior")
 
-        predictions[int(obs_times[i_obs])] = {
+        predictions[int(current_time)] = {
             "all_times": all_times.tolist(),
-            "observation_times": obs_times[:i_obs].tolist(),
+            "observation_times": obs_times[1:i_obs+1].tolist() if current_time > 0 else [],
             "forecast_times": forecast_times.tolist(),
-            "observations": settlement_obs[:i_obs].tolist(),
+            "observations": settlement_obs[1:i_obs+1].tolist() if current_time > 0 else [],
             "prior_mean": prior_prediction_mean.tolist(),
             "prior_lower_quantile": prior_prediction_quantiles[0].tolist(),
             "prior_upper_quantile": prior_prediction_quantiles[1].tolist(),
@@ -72,14 +75,13 @@ def main(
             "cv_posterior_pdf": np.exp(runner.cv_grid_logpdf).tolist()
         }
 
-        if i_obs > 0:
-            plot_predictions(
-                predictions=predictions[obs_times[i_obs]],
-                true_cv=true_cv,
-                true_settlement=true_settlement,
-                path=result_path,
-                return_fig=False
-            )
+        plot_predictions(
+            predictions=predictions[current_time],
+            true_cv=true_cv,
+            true_settlement=true_settlement,
+            path=result_path,
+            return_fig=False
+        )
 
     with open(data_path/"predictions.json", "w") as f:
         json.dump(predictions, f, indent=4)
@@ -91,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--true_cv", type=float, default=2.3*1e-8 * (24 * 3_600))
     parser.add_argument("--days", type=int, default=10_000)
     parser.add_argument("--settlement_cov", type=float, default=0.1)
-    parser.add_argument("--days_interval", type=int, default=1_000)
+    parser.add_argument("--days_interval", type=int, default=200)
     args = parser.parse_args()
 
     main(

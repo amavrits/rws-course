@@ -116,7 +116,10 @@ def plot_predictions(
 
     ax = axs[0]
 
-    ax.scatter(obs_times, settlement_obs, color="k", marker="x", label="Observations")
+    if len(obs_times) > 0:
+        ax.axvline(max(obs_times), c="k", linestyle="--")
+        ax.scatter(obs_times, settlement_obs, color="k", marker="x", label="Observations")
+
     ax.plot(forecast_times, prior_mean, c="b", linewidth=1.5, label="Prior mean prediction")
     ax.fill_between(
         x=forecast_times,
@@ -139,7 +142,6 @@ def plot_predictions(
 
     ax.plot(all_times, true_settlement, c="g", linewidth=1.5, label="True settlement model")
 
-    ax.axvline(max(obs_times), c="k", linestyle="--")
     ax.set_xlabel("Time [d]", fontsize=12)
     ax.set_ylabel("Settlement [m]", fontsize=12)
     ax.invert_yaxis()
@@ -163,7 +165,10 @@ def plot_predictions(
         if path is not None:
             path = path / "plots"
             path.mkdir(exist_ok=True, parents=True)
-            fig.savefig(path/f"settlement_prediction_time_{max(obs_times)}.png")
+            if len(obs_times) > 0:
+                fig.savefig(path/f"settlement_prediction_time_{max(obs_times)}.png")
+            else:
+                fig.savefig(path/"settlement_prediction_time_0.png")
         return
 
 
