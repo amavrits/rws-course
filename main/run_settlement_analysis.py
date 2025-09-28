@@ -37,6 +37,7 @@ def main(
     true_settlement = settlement_model(times=all_times, params=runner.params, cv=true_cv)
 
     obs_times = np.arange(0, all_times.max(), days_interval)
+
     settlement_obs = sample_settlement(
         times=obs_times,
         params=runner.params,
@@ -90,8 +91,8 @@ def main(
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument("--true_cv", type=float, default=2.3*1e-8 * (24 * 3_600))
-    parser.add_argument("--days", type=int, default=10_000)
+    parser.add_argument("--true_cv", type=float, default=4.*1e-8 * (24 * 3_600))
+    parser.add_argument("--days", type=int, default=3_650)
     parser.add_argument("--settlement_cov", type=float, default=0.1)
     parser.add_argument("--days_interval", type=int, default=200)
     args = parser.parse_args()

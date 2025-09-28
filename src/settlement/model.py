@@ -10,7 +10,7 @@ class SoilParams:
     cc: float = 0.35
     cr: float = 0.06
     cv: float = 3*1e-8 * (24 * 3_600)  # in days
-    h: float = 5.
+    h: float = 2.
     e_o: float = 1.
     load: float = 20.
     sigma_o: float = 30.

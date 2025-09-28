@@ -55,7 +55,7 @@ class Runner:
         if times is None:
             times = self.all_times
         loglike = self.loglike(s_obs=s_obs, times=times)
-        logpost = self.cv_grid_logpdf + loglike
+        logpost = self.cv_grid_prior_logpdf + loglike
         post = np.exp(logpost)
         post /= trapezoid(post, self.cv_grid)
         self.cv_grid_logpdf = np.log(post)
