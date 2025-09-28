@@ -82,6 +82,18 @@ layout = html.Div([
             dcc.Link("Open Pile Tool", 
                     href="/pile-analysis", 
                     style={**button_style, "backgroundColor": "#ffc107", "color": "#212529"})
+        ], style=card_style),
+        
+        html.Div([
+            html.H4("Normal Distribution Fitting", style={"marginBottom": "1rem"}),
+            html.P([
+                "Interactive exploration of normal distribution parameter ",
+                "estimation with different sample sizes. Demonstrates the ",
+                "Central Limit Theorem and confidence intervals."
+            ], style={"marginBottom": "1rem", "flex": "1"}),
+            dcc.Link("Open Normal Fitting Tool", 
+                    href="/normal-fitting", 
+                    style={**button_style, "backgroundColor": "#17a2b8", "color": "white"})
         ], style=card_style)
     ], style={"display": "flex", "flexWrap": "wrap", "justifyContent": "center", "marginBottom": "3rem"}),
     
