@@ -92,6 +92,8 @@ class Runner:
 
 def plot_predictions(
         predictions: Dict[str, List[float]],
+        true_cv: float,
+        true_settlement: NDArray,
         path: Optional[Path] = None,
         return_fig: bool = False
 ) -> Optional[plt.Figure]:
@@ -125,23 +127,35 @@ def plot_predictions(
     ax.plot(forecast_times, prior_lower_quantile, c="b", linewidth=.5)
     ax.plot(forecast_times, prior_upper_quantile, c="b", linewidth=.5)
     
-    ax.plot(forecast_times, posterior_mean, c="r", linewidth=1.5, label="posterior mean prediction")
+    ax.plot(forecast_times, posterior_mean, c="r", linewidth=1.5, label="Posterior mean prediction")
     ax.fill_between(
         x=forecast_times,
         y1=posterior_lower_quantile,
         y2=posterior_upper_quantile,
-        color="r", alpha=0.3, label="posterior 90% CI"
+        color="r", alpha=0.3, label="Posterior 90% CI"
     )
     ax.plot(forecast_times, posterior_lower_quantile, c="r", linewidth=.5)
     ax.plot(forecast_times, posterior_upper_quantile, c="r", linewidth=.5)
 
+    ax.plot(all_times, true_settlement, c="g", linewidth=1.5, label="True settlement model")
+
+    ax.axvline(max(obs_times), c="k", linestyle="--")
     ax.set_xlabel("Time [d]", fontsize=12)
     ax.set_ylabel("Settlement [m]", fontsize=12)
     ax.invert_yaxis()
     ax.legend(fontsize=12)
     ax.grid()
 
+    ax = axs[1]
+    ax.plot(cv_grid, cv_prior_pdf, c="b", label="Prior PDF")
+    ax.plot(cv_grid, cv_posterior_pdf, c="r", label="Posterior PDF")
+    ax.axvline(true_cv, linewidth=2, c="g", label="True ${C}_{v}$")
+    ax.set_xlabel("${C}_{v}$ [${m}^{2}$/d]", fontsize=12)
+    ax.set_ylabel("Density [-]", fontsize=12)
+    ax.legend(fontsize=12)
+    ax.grid()
 
+    plt.close()
 
     if return_fig:
         return fig

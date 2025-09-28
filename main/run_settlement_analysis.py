@@ -9,27 +9,39 @@ from typing import Optional
 from tqdm import tqdm
 
 
-def main(true_cv: float = 2*1e-8 * (24 * 3_600), days: int = 10_000) -> None:
+def main(
+        true_cv: float = 2*1e-8 * (24 * 3_600),
+        days: int = 10_000,
+        settlement_cov:float = .1,
+        days_interval: int = 1_000
+) -> None:
 
     script_path = Path(__file__).parent
 
-    data_path = script_path.parents[1] / "data/settlement_analysis"
+    data_path = script_path.parent / "data/settlement_analysis"
     data_path.mkdir(parents=True, exist_ok=True)
 
-    result_path = script_path.parents[1] / "results/settlement_analysis"
+    result_path = script_path.parent / "results/settlement_analysis"
     result_path.mkdir(parents=True, exist_ok=True)
 
     true_cv = np.asarray([true_cv])
 
     all_times = np.arange(days)
 
-    runner = Runner(all_times=all_times, true_cv=true_cv)
+    runner = Runner(
+        all_times=all_times,
+        true_cv=true_cv,
+        settlement_cov=settlement_cov
+    )
 
-    obs_times = np.arange(100, all_times.max(), 100)
+    true_settlement = settlement_model(times=all_times, params=runner.params, cv=true_cv)
+
+    obs_times = np.arange(days_interval, all_times.max(), days_interval)
     settlement_obs = sample_settlement(
         times=obs_times,
         params=runner.params,
         cv=true_cv,
+        cov=settlement_cov,
         n=1
     )
 
@@ -40,11 +52,11 @@ def main(true_cv: float = 2*1e-8 * (24 * 3_600), days: int = 10_000) -> None:
         if i_obs > 0:
             runner.bayes(s_obs=settlement_obs[:i_obs], times=obs_times[:i_obs])
 
-        forecast_times = all_times[all_times>=obs_times[i_obs]]
+        forecast_times = all_times[all_times>=obs_times[i_obs-1]]
         prior_prediction_mean, prior_prediction_quantiles = runner.predict(times=forecast_times, type="prior")
         posterior_prediction_mean, posterior_prediction_quantiles = runner.predict(times=forecast_times, type="posterior")
 
-        predictions[obs_times[i_obs]] = {
+        predictions[int(obs_times[i_obs])] = {
             "all_times": all_times.tolist(),
             "observation_times": obs_times[:i_obs].tolist(),
             "forecast_times": forecast_times.tolist(),
@@ -61,25 +73,31 @@ def main(true_cv: float = 2*1e-8 * (24 * 3_600), days: int = 10_000) -> None:
         }
 
         if i_obs > 0:
-
             plot_predictions(
                 predictions=predictions[obs_times[i_obs]],
+                true_cv=true_cv,
+                true_settlement=true_settlement,
                 path=result_path,
                 return_fig=False
             )
 
-            pass
+    with open(data_path/"predictions.json", "w") as f:
+        json.dump(predictions, f, indent=4)
 
 
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument("--true_cv", type=float, default=2*1e-8 * (24 * 3_600))
+    parser.add_argument("--true_cv", type=float, default=2.3*1e-8 * (24 * 3_600))
     parser.add_argument("--days", type=int, default=10_000)
+    parser.add_argument("--settlement_cov", type=float, default=0.1)
+    parser.add_argument("--days_interval", type=int, default=1_000)
     args = parser.parse_args()
 
     main(
         true_cv=args.true_cv,
-        days=args.days
+        days=args.days,
+        settlement_cov=args.settlement_cov,
+        days_interval=args.days_interval
     )
 
