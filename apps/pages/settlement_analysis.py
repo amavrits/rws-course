@@ -22,7 +22,7 @@ def load_predictions_data():
         predictions = json.load(f)
     return predictions
 
-def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_600)):
+def create_plotly_figure(predictions_data, time_key, true_cv=4*1e-8 * (24 * 3_600)):
     """Create a clean Plotly figure from predictions data."""
     prediction = predictions_data[str(time_key)]
 
@@ -61,7 +61,7 @@ def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_
         rows=1, cols=2,
         subplot_titles=("Settlement Predictions", "Cv Distribution"),
         column_widths=[0.8, 0.2],  # Give more space to main plot
-        horizontal_spacing=0.1,     # Reduce spacing to maximize plot area
+        horizontal_spacing=0.15,     # Reduce spacing to maximize plot area
         specs=[[{"secondary_y": True}, {"secondary_y": False}]]
     )
 
@@ -210,7 +210,7 @@ def create_plotly_figure(predictions_data, time_key, true_cv=2.3*1e-8 * (24 * 3_
     entries = [
         dict(color="blue", label="Prior PDF"),
         dict(color="red", label="Posterior PDF"),
-        dict(color="green", label="True ${C}_{v}$"),
+        dict(color="green", label="True Cv"),
     ]
 
     y0 = 0.96
