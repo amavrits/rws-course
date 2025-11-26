@@ -27,8 +27,6 @@ def main(n: int = 100_000, true_mean: float = 20., true_std: float = 4.) -> None
     param_pdf = param_dist.pdf(x_grid)
 
 
-
-
 if __name__ == "__main__":
 
     parser = ArgumentParser()
