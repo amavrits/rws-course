@@ -13,7 +13,8 @@ def plot_cis(
         n: int,
         path: Optional[Path] = None,
         true_p: float = .5,
-        alpha: float = .05
+        alpha: float = .05,
+        return_fig: bool = False
 ) -> plt.Figure:
 
     p_grid = np.linspace(1e-4, 1-1e-4, 10_000)
@@ -30,7 +31,7 @@ def plot_cis(
     posterior_errs = np.array([posterior_p_mean-posterior_ci[0], posterior_ci[1]-posterior_p_mean]).reshape(-1, 1)
     posterior_pdf = posterior_beta.pdf(p_grid)
 
-    fig = plt.figure(figsize=(12, 6))
+    fig = plt.figure(figsize=(12, 5))
     label = f"Prior mean and {(1-alpha)*100:.0f}% CI"
     plt.plot(p_grid, prior_pdf, c="b", label="Prior PDF")
     plt.errorbar(x=prior_p_mean, y=0.4*posterior_pdf.max(), xerr=prior_errs, c="b", fmt="o", capsize=5, label=label)
@@ -46,10 +47,10 @@ def plot_cis(
     plt.grid()
     plt.close()
 
-    if path is not None:
-        fig.savefig(path/f"bernoulli_fit_progression_{n}_obs.png")
-    else:
+    if return_fig:
         return fig
+    else:
+        fig.savefig(path/f"bernoulli_fit_progression_{n}_obs.png")
 
 
 def inference(sample: NDArray, prior_params: Tuple[float]) -> Tuple[float]:
