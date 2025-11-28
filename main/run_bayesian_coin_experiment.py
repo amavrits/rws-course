@@ -1,57 +1,74 @@
 import numpy as np
-from scipy.stats import bernoulli, norm, beta
+from scipy.stats import bernoulli, norm, beta, truncnorm
 from pathlib import Path
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from argparse import ArgumentParser
 
 
 def plot_cis(
+        prior_params: Tuple[float],
+        posterior_params: Tuple[float],
+        n: int,
         path: Optional[Path] = None,
-        phats: List[float],
-        n_obs: List[int],
         true_p: float = .5,
         alpha: float = .05
 ) -> plt.Figure:
 
-    phats = np.array(phats)
+    p_grid = np.linspace(1e-4, 1-1e-4, 10_000)
 
-    phat_cis = np.empty((phats.size, 2))
-    for i, (n, phat) in enumerate(zip(n_obs, phats)):
-        phat_std = np.sqrt(phat * (1 - phat) / n)
-        phat_ci = np.clip([phat + norm.ppf(0.025) * phat_std, phat + norm.ppf(0.975) * phat_std], 0., 1.)
-        phat_cis[i] = phat_ci
+    prior_beta = beta(a=prior_params[0], b=prior_params[1])
+    prior_p_mean = prior_beta.mean()
+    prior_ci = prior_beta.ppf([0.025, 0.975])
+    prior_errs = np.array([prior_p_mean-prior_ci[0], prior_ci[1]-prior_p_mean]).reshape(-1, 1)
+    prior_pdf = prior_beta.pdf(p_grid)
 
-    phat_errs = np.array([phats-phat_cis[:, 0], phat_cis[:, 1]-phats])
+    posterior_beta = beta(a=posterior_params[0], b=posterior_params[1])
+    posterior_p_mean = posterior_beta.mean()
+    posterior_ci = posterior_beta.ppf([0.025, 0.975])
+    posterior_errs = np.array([posterior_p_mean-posterior_ci[0], posterior_ci[1]-posterior_p_mean]).reshape(-1, 1)
+    posterior_pdf = posterior_beta.pdf(p_grid)
 
     fig = plt.figure(figsize=(12, 6))
-    plt.errorbar(x=n_obs, y=phats, yerr=phat_errs, c="b", fmt="o", capsize=5, label=f"Mean and {(1-alpha)*100:.0f}% CI")
-    plt.axhline(true_p, c="r", linestyle="--", label="True value")
-    plt.xlabel("# of observations", fontsize=14)
-    plt.ylabel("$\hat{p}$", fontsize=14)
-    plt.xscale("log")
-    plt.ylim(-.02, 1.02)
-    plt.legend(fontsize=12)
+    label = f"Prior mean and {(1-alpha)*100:.0f}% CI"
+    plt.plot(p_grid, prior_pdf, c="b", label="Prior PDF")
+    plt.errorbar(x=prior_p_mean, y=0.4*posterior_pdf.max(), xerr=prior_errs, c="b", fmt="o", capsize=5, label=label)
+    label = f"Posterior mean and {(1-alpha)*100:.0f}% CI"
+    plt.plot(p_grid, posterior_pdf, c="r", label="Posterior PDF")
+    plt.errorbar(x=posterior_p_mean, y=0.6*posterior_pdf.max(), xerr=posterior_errs, c="r", fmt="o", capsize=5, label=label)
+    plt.axvline(true_p, c="k", linestyle="--", label="True value")
+    plt.xlabel("$\hat{p}$", fontsize=14)
+    plt.ylabel("Density [-]", fontsize=14)
+    plt.xlim(0, 1)
+    plt.legend(fontsize=12, loc="upper right")
+    plt.title(f"Bayesian estimates for {n} samples", fontsize=14)
     plt.grid()
     plt.close()
 
     if path is not None:
-        fig.savefig(path/f"bernoulli_fit_progression.png")
+        fig.savefig(path/f"bernoulli_fit_progression_{n}_obs.png")
     else:
         return fig
 
 
+def inference(sample: NDArray, prior_params: Tuple[float]) -> Tuple[float]:
+    prior_a, prior_b = prior_params
+    sample_sum = sample.sum()
+    post_a = prior_a + sample_sum
+    post_b = prior_b + sample.size - sample_sum
+    return post_a, post_b
+
+
 def main(n_all: int = 100_000, true_p: float = .5, prior_a: float = .5, prior_b: float = .5) -> None:
+
+    prior_params = (prior_a, prior_b)
 
     n_obs = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000]
 
     script_dir = Path(__file__).parent
 
-    data_path = script_dir.parent / "data/bernoulli_model"
-    data_path.mkdir(parents=True, exist_ok=True)
-
-    result_path = script_dir.parent / "results/bernoulli_model"
+    result_path = script_dir.parent / "results/bayesian_bernoulli_model"
     result_path.mkdir(parents=True, exist_ok=True)
 
     true_dist = bernoulli(p=true_p)
@@ -59,25 +76,18 @@ def main(n_all: int = 100_000, true_p: float = .5, prior_a: float = .5, prior_b:
     np.random.seed(42)
     sample = true_dist.rvs(n_all)
 
-    post_as = [None] * len(n_obs)
-    post_bs = [None] * len(n_obs)
-    for i, n in enumerate(n_obs):
-        x = sample[:n]
-        x_sum = x.sum()
-        post_a = prior_a + x_sum
-        post_b = prior_b + n - x_sum
-        post_as[i] = post_a
-        post_ab[i] = post_b
+    posterior_params = [inference(sample[:n], prior_params) for n in n_obs]
 
-    plot_cis(result_path, prior_a, prior_b, post_as, post_bs, n_obs, true_p)
+    for (n, params) in zip(n_obs, posterior_params):
+        plot_cis(prior_params, params, n, result_path, true_p)
 
 
 if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--true_p", type=float, default=.5)
-    parser.add_argument("--prior-a", type=float, default=.5)
-    parser.add_argument("--prior-b", type=float, default=.5)
+    parser.add_argument("--prior-a", type=float, default=2.)
+    parser.add_argument("--prior-b", type=float, default=2.)
     args = parser.parse_args()
 
     main(

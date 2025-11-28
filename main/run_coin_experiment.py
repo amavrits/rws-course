@@ -44,7 +44,7 @@ def plot_cis(
         fig.savefig(path / f"bernoulli_fit_progression.png")
 
 
-def inference(sample) -> float:
+def inference(sample: NDArray) -> float:
     return sample.mean()
 
 
@@ -54,9 +54,6 @@ def main(n_all: int = 100_000, true_p: float = .5) -> None:
 
     script_dir = Path(__file__).parent
 
-    data_path = script_dir.parent / "data/bernoulli_model"
-    data_path.mkdir(parents=True, exist_ok=True)
-
     result_path = script_dir.parent / "results/bernoulli_model"
     result_path.mkdir(parents=True, exist_ok=True)
 
@@ -65,7 +62,7 @@ def main(n_all: int = 100_000, true_p: float = .5) -> None:
     np.random.seed(42)
     sample = true_dist.rvs(n_all)
 
-    phats = [inference(sample[:n] for n in n_obs)]
+    phats = [inference(sample[:n]) for n in n_obs]
 
     plot_cis(phats, n_obs, result_path, true_p, return_fig=False)
 
