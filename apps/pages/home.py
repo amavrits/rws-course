@@ -9,7 +9,7 @@ from dash import html, dcc
 
 # Register page only if dash pages is enabled
 try:
-    dash.register_page(__name__, path='/', title='RF Analysis Hub - Home')
+    dash.register_page(__name__, path='/', title='Probabilistic and Statistical Analysis Hub - Home')
 except:
     pass
 
@@ -45,9 +45,21 @@ layout = html.Div([
         "Welcome to the Random Field Analysis platform. This application provides ",
         "interactive tools for geotechnical analysis using random field modeling."
     ], style={"fontSize": "1.25rem", "marginBottom": "2rem", "textAlign": "center", "color": "#6c757d"}),
-    
+
     # Cards section
     html.Div([
+
+        html.Div([
+            html.H4("Random Field Visualization", style={"marginBottom": "1rem"}),
+            html.P([
+                "Generate a coin experiment, solve using Bayesian statistics (beta-bernoulli conjugate priors)"
+                "and visualize.",
+            ], style={"marginBottom": "1rem", "flex": "1"}),
+            dcc.Link("Open Visualization Tool",
+                     href="/bayesian-coin-analysis",
+                     style={**button_style, "backgroundColor": "#007bff", "color": "white"})
+        ], style=card_style),
+
         html.Div([
             html.H4("Random Field Visualization", style={"marginBottom": "1rem"}),
             html.P([
@@ -55,8 +67,8 @@ layout = html.Div([
                 "correlation parameters. Perfect for understanding spatial ",
                 "variability in soil properties."
             ], style={"marginBottom": "1rem", "flex": "1"}),
-            dcc.Link("Open Visualization Tool", 
-                    href="/rf-visualization", 
+            dcc.Link("Open Visualization Tool",
+                    href="/rf-visualization",
                     style={**button_style, "backgroundColor": "#007bff", "color": "white"})
         ], style=card_style),
         
