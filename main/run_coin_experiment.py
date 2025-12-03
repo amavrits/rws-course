@@ -41,7 +41,7 @@ def plot_cis(
     if return_fig:
         return fig
     else:
-        fig.savefig(path / f"bernoulli_fit_progression.png")
+        fig.savefig(path / f"bernoulli_fit_progression.png", dpi=900)
 
 
 def inference(sample: NDArray) -> float:
