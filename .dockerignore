@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+*.md
+notebooks/
+results/
+data/
+cli/
+.claude/
