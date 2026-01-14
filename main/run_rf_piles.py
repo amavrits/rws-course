@@ -38,7 +38,8 @@ def pile_analysis(
         pile_length:float = 15.,
         path: Optional[Path] = None,
         return_fig: bool = False,
-        random_seed: int = 42
+        random_seed: int = 42,
+        rf: Optional[NDArray] = None
 ) -> float:
 
     x_grid = np.linspace(0, 100, n_x)
@@ -46,18 +47,19 @@ def pile_analysis(
     coords = np.meshgrid(x_grid, y_grid)
     coords = np.c_[[m.flatten() for m in coords]].T
 
-    rf = make_rf(
-        coords=coords,
-        mean=mean,
-        std=std,
-        n_x=n_x,
-        n_y=n_y,
-        theta_x=theta_x,
-        theta_y=theta_y,
-        path=None,
-        return_fig=False,
-        random_seed=random_seed
-    )
+    if rf is None:
+        rf = make_rf(
+            coords=coords,
+            mean=mean,
+            std=std,
+            n_x=n_x,
+            n_y=n_y,
+            theta_x=theta_x,
+            theta_y=theta_y,
+            path=None,
+            return_fig=False,
+            random_seed=random_seed
+        )
 
     x_grid_piles = np.linspace(0, 100, n_piles+1)
     pile_xs = (x_grid_piles[:-1] + x_grid_piles[1:]) / 2

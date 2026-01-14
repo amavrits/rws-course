@@ -32,7 +32,8 @@ def foundation_analysis(
         foundation_load: float = 400.,
         path: Optional[Path] = None,
         return_fig: bool = False,
-        random_seed: int = 42
+        random_seed: int = 42,
+        rf: Optional[NDArray] = None
 ) -> float:
 
     x_grid = np.linspace(0, 100, n_x)
@@ -40,18 +41,19 @@ def foundation_analysis(
     coords = np.meshgrid(x_grid, y_grid)
     coords = np.c_[[m.flatten() for m in coords]].T
 
-    rf = make_rf(
-        coords=coords,
-        mean=mean,
-        std=std,
-        n_x=n_x,
-        n_y=n_y,
-        theta_x=theta_x,
-        theta_y=theta_y,
-        path=None,
-        return_fig=False,
-        random_seed=random_seed
-    )
+    if rf is None:
+        rf = make_rf(
+            coords=coords,
+            mean=mean,
+            std=std,
+            n_x=n_x,
+            n_y=n_y,
+            theta_x=theta_x,
+            theta_y=theta_y,
+            path=None,
+            return_fig=False,
+            random_seed=random_seed
+        )
 
     failure_coords, d_length = get_failure_points(foundation_width=foundation_width, n_angles=100)
     failure_autocorr = markov(failure_coords, theta_x=theta_x, theta_y=theta_y)

@@ -15,11 +15,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
     from main.generate_rf import make_rf
+    from src.rf_cache import get_or_generate_rf, get_coords
     import matplotlib.pyplot as plt
 except ImportError:
     # Handle missing imports gracefully
     def make_rf(*args, **kwargs):
         raise ImportError("generate_rf module not found")
+    def get_or_generate_rf(*args, **kwargs):
+        raise ImportError("rf_cache module not found")
+    def get_coords(*args, **kwargs):
+        raise ImportError("rf_cache module not found")
 
 # Register page only if dash pages is enabled
 try:
@@ -77,15 +82,29 @@ controls = html.Div(
             ],
             style={"display": "flex", "flexDirection": "column", "marginBottom": "15px"},
         ),
+        html.Div(
+            [
+                html.Label("Random Seed", style={"marginBottom": "4px", "fontWeight": "500"}),
+                dcc.Input(
+                    id="rf-viz-seed",
+                    type="number",
+                    value=42,
+                    step=1,
+                    debounce=True,
+                    style={"width": "100%", "padding": "8px", "borderRadius": "4px"},
+                ),
+            ],
+            style={"display": "flex", "flexDirection": "column", "marginBottom": "15px"},
+        ),
         html.Button(
-            "Generate Random Field", 
-            id="rf-viz-go", 
-            n_clicks=0, 
+            "Generate Random Field",
+            id="rf-viz-go",
+            n_clicks=0,
             style={
-                "height": "40px", 
-                "backgroundColor": "#007bff", 
-                "color": "white", 
-                "border": "none", 
+                "height": "40px",
+                "backgroundColor": "#007bff",
+                "color": "white",
+                "border": "none",
                 "borderRadius": "4px",
                 "cursor": "pointer",
                 "fontWeight": "500"
@@ -149,25 +168,32 @@ from dash import callback, Output, Input, State, no_update
     Input("rf-viz-go", "n_clicks"),
     State("rf-viz-theta-x", "value"),
     State("rf-viz-theta-y", "value"),
+    State("rf-viz-seed", "value"),
     prevent_initial_call=True,
 )
-def compute_and_show_rf_viz(n_clicks, tx, ty):
+def compute_and_show_rf_viz(n_clicks, tx, ty, seed):
     if tx is None or ty is None:
         return no_update, "⚠️ Enter valid horizontal and vertical θ's (>0.001)."
     if tx <= 0 or ty <= 0:
         return no_update, "⚠️ The horizontal and vertical θ's must be positive."
 
     try:
-        fig = make_rf(
-            coords=coords,
-            mean=20.,
-            std=4.,
-            n_x=x_grid.size,
-            n_y=y_grid.size,
+        # Load RF from cache or generate if not cached
+        rf = get_or_generate_rf(
             theta_x=tx,
             theta_y=ty,
-            return_fig=True
+            seed=seed,
+            mean=20.,
+            std=4.
         )
+
+        # Create the visualization figure
+        fig = plt.figure(figsize=(12, 6))
+        im = plt.imshow(rf)
+        cbar = plt.colorbar(im)
+        plt.xlabel("Length [m]", fontsize=14)
+        plt.ylabel("Depth [m]", fontsize=14)
+        cbar.set_label("${S}_{u}$ [kPa]", rotation=270, labelpad=20, fontsize=14)
 
         buf = io.BytesIO()
         fig.tight_layout()
@@ -178,4 +204,4 @@ def compute_and_show_rf_viz(n_clicks, tx, ty):
     except Exception as e:
         return no_update, f"❌ Error: {type(e).__name__}: {e}"
 
-    return src, f"✅ Random field generated with horizontal θ={tx:.2f}m, vertical θ={ty:.2f}m"
+    return src, f"✅ Random field generated with horizontal θ={tx:.2f}m, vertical θ={ty:.2f}m, seed={seed}"

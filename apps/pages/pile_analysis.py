@@ -15,11 +15,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
     from main.run_rf_piles import pile_analysis
+    from src.rf_cache import get_or_generate_rf
     import matplotlib.pyplot as plt
 except ImportError:
     # Handle missing imports gracefully
     def pile_analysis(*args, **kwargs):
         raise ImportError("run_rf_piles module not found")
+    def get_or_generate_rf(*args, **kwargs):
+        raise ImportError("rf_cache module not found")
 
 # Register page only if dash pages is enabled
 try:
@@ -186,6 +189,15 @@ def compute_and_show_pile(n_clicks, n_piles, tx, ty, random_seed):
         return no_update, "⚠️ The horizontal and vertical θ's must be positive."
 
     try:
+        # Load RF from cache or generate if not cached
+        rf = get_or_generate_rf(
+            theta_x=tx,
+            theta_y=ty,
+            seed=random_seed,
+            mean=20.,
+            std=4.
+        )
+
         fos, fig = pile_analysis(
             n_piles=n_piles,
             theta_x=tx,
@@ -198,7 +210,8 @@ def compute_and_show_pile(n_clicks, n_piles, tx, ty, random_seed):
             pile_diameter=1.,
             path=None,
             return_fig=True,
-            random_seed=random_seed
+            random_seed=random_seed,
+            rf=rf
         )
 
         buf = io.BytesIO()

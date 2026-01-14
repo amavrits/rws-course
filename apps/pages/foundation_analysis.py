@@ -15,11 +15,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
     from main.run_rf_foundation import foundation_analysis
+    from src.rf_cache import get_or_generate_rf
     import matplotlib.pyplot as plt
 except ImportError:
     # Handle missing imports gracefully
     def foundation_analysis(*args, **kwargs):
         raise ImportError("run_rf_foundation module not found")
+    def get_or_generate_rf(*args, **kwargs):
+        raise ImportError("rf_cache module not found")
 
 # Register page only if dash pages is enabled
 try:
@@ -185,6 +188,15 @@ def compute_and_show_foundation(n_clicks, width, tx, ty, random_seed):
         return no_update, "⚠️ The horizontal and vertical θ's must be positive."
 
     try:
+        # Load RF from cache or generate if not cached
+        rf = get_or_generate_rf(
+            theta_x=tx,
+            theta_y=ty,
+            seed=random_seed,
+            mean=20.,
+            std=4.
+        )
+
         fos, fig = foundation_analysis(
             foundation_width=width,
             theta_x=tx,
@@ -196,7 +208,8 @@ def compute_and_show_foundation(n_clicks, width, tx, ty, random_seed):
             foundation_load=400.,
             path=None,
             return_fig=True,
-            random_seed=random_seed
+            random_seed=random_seed,
+            rf=rf
         )
 
         buf = io.BytesIO()
